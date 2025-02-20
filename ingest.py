@@ -11,6 +11,7 @@ import boto3
 import tempfile
 from config import S3_BUCKET_NAME
 from io import BytesIO
+import faiss
 
 load_dotenv()
 
@@ -55,11 +56,15 @@ def create_vector_store(chunks, index_name="vector_store.index"):
     embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
     vector_store = FAISS.from_documents(chunks, embeddings)
 
-    # Save the FAISS index to a BytesIO object
-    index_bytes_io = BytesIO()
-    vector_store.index.write_index(index_bytes_io)
-    index_bytes_io.seek(0)
+    # Save the FAISS index to a temporary file
+    index_temp_file = os.path.join(tempfile.gettempdir(), index_name)
+    faiss.write_index(vector_store.index, index_temp_file)
 
     # Upload the FAISS index to S3
-    s3_client.upload_fileobj(index_bytes_io, S3_BUCKET_NAME, index_name)
+    with open(index_temp_file, "rb") as buffer:
+        s3_client.upload_fileobj(buffer, S3_BUCKET_NAME, index_name)
+
+    # Clean up the temporary file
+    os.remove(index_temp_file)
+
     return {"message": "Vector store created successfully and uploaded to S3", "index_name": index_name}

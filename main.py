@@ -82,18 +82,6 @@ async def upload_document(file: UploadFile):
         chunks = ingest_documents(temp_file_path)
         vector_store = create_vector_store(chunks, index_name=f"{file.filename}.index")
 
-        # Save the FAISS index to a temporary file
-        index_temp_file = os.path.join(tempfile.gettempdir(), f"{file.filename}.index")
-        faiss.write_index(vector_store, index_temp_file)
-
-        # Upload the FAISS index to S3
-        with open(index_temp_file, "rb") as buffer:
-            s3_client.upload_fileobj(buffer, S3_BUCKET_NAME, f"{file.filename}.index")
-
-        # Clean up the temporary files
-        os.remove(temp_file_path)
-        os.remove(index_temp_file)
-
         return {"message": "File uploaded & indexed successfully!", "index_name": f"{file.filename}.index"}
     except Exception as e:
         logger.error(f"Failed to upload document: {e}")
